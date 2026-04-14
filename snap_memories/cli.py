@@ -11,10 +11,7 @@ from snap_memories.composite import composite_image, composite_video
 from snap_memories.gps import write_image_gps, write_video_gps
 from snap_memories.metadata import build_metadata_index
 
-BASE_DIR = Path.cwd()
-MEMORIES_DIR = BASE_DIR / "memories"
-JSON_PATH = BASE_DIR / "json" / "memories_history.json"
-OUTPUT_DIR = BASE_DIR / "output"
+DEFAULT_BASE_DIR = Path.cwd()
 
 
 def main() -> None:
@@ -24,17 +21,40 @@ def main() -> None:
     parser.add_argument(
         "--limit", type=int, default=None, help="Process only N files (for testing)"
     )
+    parser.add_argument(
+        "--memories-dir",
+        type=Path,
+        default=None,
+        help="Path to the memories folder (default: <cwd>/memories)",
+    )
+    parser.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        help="Path to memories_history.json (default: <cwd>/json/memories_history.json)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Path to output folder (default: <cwd>/output)",
+    )
     args = parser.parse_args()
 
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    base = DEFAULT_BASE_DIR
+    memories_dir = args.memories_dir or base / "memories"
+    json_path = args.json or base / "json" / "memories_history.json"
+    output_dir = args.output_dir or base / "output"
+
+    output_dir.mkdir(exist_ok=True)
 
     logging.info("Building metadata index...")
-    metadata = build_metadata_index(JSON_PATH)
+    metadata = build_metadata_index(json_path)
     logging.info("%d records loaded from JSON.", len(metadata))
 
     # Build overlay lookup: UUID → overlay path
     overlays: dict[str, Path] = {}
-    for f in MEMORIES_DIR.glob("*-overlay.png"):
+    for f in memories_dir.glob("*-overlay.png"):
         parts = f.stem.split("_", 1)  # ["YYYY-MM-DD", "UUID-overlay"]
         if len(parts) == 2:
             uuid = parts[1].replace("-overlay", "").upper()
@@ -42,7 +62,7 @@ def main() -> None:
 
     # Collect all main snaps
     main_files = sorted(
-        [f for f in MEMORIES_DIR.iterdir() if f.stem.endswith("-main")],
+        [f for f in memories_dir.iterdir() if f.stem.endswith("-main")],
         key=lambda f: f.name,
     )
     if args.limit:
@@ -52,7 +72,7 @@ def main() -> None:
     n_composited = 0
     n_no_meta = 0
 
-    logging.info("Processing %d files → %s/\n", len(main_files), OUTPUT_DIR)
+    logging.info("Processing %d files → %s/\n", len(main_files), output_dir)
 
     for main_path in tqdm(main_files, unit="file"):
         is_image = main_path.suffix.lower() == ".jpg"
@@ -69,7 +89,7 @@ def main() -> None:
         overlay_path = overlays.get(uuid)
 
         # Copy main to output
-        out_main = OUTPUT_DIR / main_path.name
+        out_main = output_dir / main_path.name
         shutil.copy2(main_path, out_main)
 
         # Write GPS to main copy
@@ -86,7 +106,7 @@ def main() -> None:
         # Composite + GPS
         if overlay_path:
             if is_image:
-                out_comp = OUTPUT_DIR / main_path.name.replace("-main.jpg", "-composited.jpg")
+                out_comp = output_dir / main_path.name.replace("-main.jpg", "-composited.jpg")
                 ok = composite_image(main_path, overlay_path, out_comp)
                 if ok:
                     if has_gps:
@@ -94,7 +114,7 @@ def main() -> None:
                     n_composited += 1
 
             elif is_video:
-                out_comp = OUTPUT_DIR / main_path.name.replace("-main.mp4", "-composited.mp4")
+                out_comp = output_dir / main_path.name.replace("-main.mp4", "-composited.mp4")
                 ok = composite_video(main_path, overlay_path, out_comp)
                 if ok:
                     if has_gps:
