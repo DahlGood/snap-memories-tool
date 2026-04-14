@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import shutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from tqdm import tqdm
@@ -88,7 +88,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--workers", type=int, default=os.cpu_count(),
-        help="Number of parallel worker threads (default: CPU count)"
+        help="Number of parallel worker processes for images (default: CPU count)"
+    )
+    parser.add_argument(
+        "--video-workers", type=int, default=max(2, (os.cpu_count() or 4) // 4),
+        help="Number of parallel worker processes for videos (default: CPU count // 4)"
     )
     args = parser.parse_args()
 
@@ -118,13 +122,28 @@ def main() -> None:
     n_composited = 0
     n_no_meta = 0
 
-    logging.info("Processing %d files → %s/ (workers=%d)\n", len(main_files), OUTPUT_DIR, args.workers)
+    image_files = [f for f in main_files if f.suffix.lower() == ".jpg"]
+    video_files = [f for f in main_files if f.suffix.lower() == ".mp4"]
 
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {
-            pool.submit(_process_file, p, metadata, overlays, OUTPUT_DIR): p
-            for p in main_files
-        }
+    logging.info(
+        "Processing %d images (workers=%d) + %d videos (workers=%d) → %s/\n",
+        len(image_files), args.workers,
+        len(video_files), args.video_workers,
+        OUTPUT_DIR,
+    )
+
+    futures: dict = {}
+    with (
+        ProcessPoolExecutor(max_workers=args.workers) as image_pool,
+        ProcessPoolExecutor(max_workers=args.video_workers) as video_pool,
+    ):
+        for p in image_files:
+            fut = image_pool.submit(_process_file, p, metadata, overlays, OUTPUT_DIR)
+            futures[fut] = p
+        for p in video_files:
+            fut = video_pool.submit(_process_file, p, metadata, overlays, OUTPUT_DIR)
+            futures[fut] = p
+
         with tqdm(total=len(main_files), unit="file") as bar:
             for fut in as_completed(futures):
                 geotagged, composited, no_meta = fut.result()
