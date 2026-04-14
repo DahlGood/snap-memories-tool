@@ -1,0 +1,10 @@
+memories/
+json/
+output/
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+*.egg-info/
+build/
+run.txt
