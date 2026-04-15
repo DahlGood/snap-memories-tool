@@ -17,7 +17,10 @@ dependencies = [
 snap-process = "snap_memories.cli:main"
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest"]
+dev = ["ruff", "pytest", "pytest-mock", "pytest-cov"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -41,6 +41,11 @@ class TestExtractMid:
     def test_malformed_url_returns_none(self):
         assert _extract_mid("not a url") is None
 
+    def test_urlparse_exception_returns_none(self, mocker):
+        # Force an exception inside the try block to exercise the except branch
+        mocker.patch("snap_memories.metadata.urlparse", side_effect=RuntimeError("boom"))
+        assert _extract_mid("https://example.com?mid=abc") is None
+
 
 class TestToRational:
     def test_whole_degrees(self):
