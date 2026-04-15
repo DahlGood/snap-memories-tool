@@ -36,8 +36,20 @@ def _process_file(
     has_gps = meta and "lat" in meta
     overlay_path = overlays.get(uuid)
 
-    # Copy main to output
     out_main = output_dir / main_path.name
+    if is_image:
+        out_comp = output_dir / main_path.name.replace("-main.jpg", "-composited.jpg")
+    elif is_video:
+        out_comp = output_dir / main_path.name.replace("-main.mp4", "-composited.mp4")
+    else:
+        out_comp = None
+
+    # Skip if all expected outputs already exist
+    expected_done = out_main.exists() and (not overlay_path or (out_comp is not None and out_comp.exists()))
+    if expected_done:
+        return bool(has_gps), bool(overlay_path), not bool(meta)
+
+    # Copy main to output
     shutil.copy2(main_path, out_main)
 
     geotagged = False
@@ -58,7 +70,6 @@ def _process_file(
     # Composite + GPS
     if overlay_path:
         if is_image:
-            out_comp = output_dir / main_path.name.replace("-main.jpg", "-composited.jpg")
             ok = composite_image(main_path, overlay_path, out_comp)
             if ok:
                 if has_gps:
@@ -66,7 +77,6 @@ def _process_file(
                 composited = True
 
         elif is_video:
-            out_comp = output_dir / main_path.name.replace("-main.mp4", "-composited.mp4")
             ok = composite_video(main_path, overlay_path, out_comp)
             if ok:
                 if has_gps:
