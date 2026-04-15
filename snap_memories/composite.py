@@ -38,7 +38,7 @@ def composite_video(main_path: Path, overlay_path: Path, out_path: Path) -> bool
         "-map", "0:a?",
         "-codec:v", "libx264",
         "-crf", "18",
-        "-preset", "slow",
+        "-preset", "medium",
         "-codec:a", "copy",
         "-loglevel", "error",
         str(out_path),
