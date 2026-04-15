@@ -13,10 +13,7 @@ from snap_memories.composite import composite_image, composite_video
 from snap_memories.gps import write_image_gps, write_video_gps
 from snap_memories.metadata import build_metadata_index
 
-BASE_DIR = Path.cwd()
-MEMORIES_DIR = BASE_DIR / "memories"
-JSON_PATH = BASE_DIR / "json" / "memories_history.json"
-OUTPUT_DIR = BASE_DIR / "output"
+DEFAULT_BASE_DIR = Path.cwd()
 
 
 def _process_file(
@@ -87,6 +84,24 @@ def main() -> None:
         "--limit", type=int, default=None, help="Process only N files (for testing)"
     )
     parser.add_argument(
+        "--memories-dir",
+        type=Path,
+        default=None,
+        help="Path to the memories folder (default: <cwd>/memories)",
+    )
+    parser.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        help="Path to memories_history.json (default: <cwd>/json/memories_history.json)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Path to output folder (default: <cwd>/output)",
+    )
+    parser.add_argument(
         "--workers", type=int, default=os.cpu_count(),
         help="Number of parallel worker processes for images (default: CPU count)"
     )
@@ -96,15 +111,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    base = DEFAULT_BASE_DIR
+    memories_dir = args.memories_dir or base / "memories"
+    json_path = args.json or base / "json" / "memories_history.json"
+    output_dir = args.output_dir or base / "output"
+
+    output_dir.mkdir(exist_ok=True)
 
     logging.info("Building metadata index...")
-    metadata = build_metadata_index(JSON_PATH)
+    metadata = build_metadata_index(json_path)
     logging.info("%d records loaded from JSON.", len(metadata))
 
     # Build overlay lookup: UUID → overlay path
     overlays: dict[str, Path] = {}
-    for f in MEMORIES_DIR.glob("*-overlay.png"):
+    for f in memories_dir.glob("*-overlay.png"):
         parts = f.stem.split("_", 1)  # ["YYYY-MM-DD", "UUID-overlay"]
         if len(parts) == 2:
             uuid = parts[1].replace("-overlay", "").upper()
@@ -112,7 +132,7 @@ def main() -> None:
 
     # Collect all main snaps
     main_files = sorted(
-        [f for f in MEMORIES_DIR.iterdir() if f.stem.endswith("-main")],
+        [f for f in memories_dir.iterdir() if f.stem.endswith("-main")],
         key=lambda f: f.name,
     )
     if args.limit:
@@ -129,7 +149,7 @@ def main() -> None:
         "Processing %d images (workers=%d) + %d videos (workers=%d) → %s/\n",
         len(image_files), args.workers,
         len(video_files), args.video_workers,
-        OUTPUT_DIR,
+        output_dir,
     )
 
     futures: dict = {}
@@ -138,10 +158,10 @@ def main() -> None:
         ProcessPoolExecutor(max_workers=args.video_workers) as video_pool,
     ):
         for p in image_files:
-            fut = image_pool.submit(_process_file, p, metadata, overlays, OUTPUT_DIR)
+            fut = image_pool.submit(_process_file, p, metadata, overlays, output_dir)
             futures[fut] = p
         for p in video_files:
-            fut = video_pool.submit(_process_file, p, metadata, overlays, OUTPUT_DIR)
+            fut = video_pool.submit(_process_file, p, metadata, overlays, output_dir)
             futures[fut] = p
 
         with tqdm(total=len(main_files), unit="file") as bar:
