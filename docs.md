@@ -1,5 +1,3 @@
----
-
 ## Input Layout
 
 By default the tool reads paths relative to the current working directory:
