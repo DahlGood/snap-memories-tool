@@ -56,7 +56,7 @@ snap-process
 | `--json PATH` | `<cwd>/json/memories_history.json` | Path to `memories_history.json` |
 | `--output-dir PATH` | `<cwd>/output` | Destination for processed output files |
 | `--workers N` | CPU count | Parallel worker processes for image jobs |
-| `--video-workers N` | CPU count ÷ 4 | Parallel worker processes for video jobs |
+| `--video-workers N` | CPU count / 4 | Parallel worker processes for video jobs |
 
 ---
 
