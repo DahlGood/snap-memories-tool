@@ -17,7 +17,8 @@ dependencies = [
 snap-process = "snap_memories.cli:main"
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest", "pytest-mock", "pytest-cov"]
+dev    = ["ruff", "pytest", "pytest-mock", "pytest-cov"]
+server = ["fastapi", "uvicorn[standard]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
