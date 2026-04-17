@@ -29,6 +29,12 @@ For development (includes test and lint tooling):
 pip install ".[dev]"
 ```
 
+For use as a library backend (adds FastAPI + uvicorn):
+
+```bash
+pip install ".[server]"
+```
+
 ---
 
 ## Usage
@@ -53,6 +59,31 @@ snap-process
 | `--video-workers N` | CPU count ÷ 4 | Parallel worker processes for video jobs |
 
 ---
+
+---
+
+## Library API
+
+The processing logic is importable for use in an HTTP server or other tooling:
+
+```python
+from snap_memories import ProcessConfig, process
+
+config = ProcessConfig(
+    memories_dir=Path("memories"),
+    json_path=Path("json/memories_history.json"),
+    output_dir=Path("output"),
+    limit=None,       # optional: process only N files
+    workers=8,        # optional: image worker count (default: CPU count)
+    video_workers=2,  # optional: video worker count (default: CPU count ÷ 4)
+)
+
+result = process(config, on_progress=lambda completed, total, *_: print(f"{completed}/{total}"))
+# result = {"total": N, "geotagged": N, "composited": N, "no_meta": N}
+```
+
+The `on_progress` callback is optional. Its signature is:
+`(completed: int, total: int, geotagged: bool, composited: bool, no_meta: bool) -> None`
 
 ---
 

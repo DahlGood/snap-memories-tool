@@ -1,4 +1,4 @@
-"""Tests for snap_memories.cli._process_file and main."""
+"""Tests for snap_memories.processing._process_file and cli.main."""
 
 import sys
 from concurrent.futures import Future
@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from snap_memories.cli import _process_file, main
+from snap_memories.cli import main
+from snap_memories.processing import _process_file
 
 UUID = "F787F2BD-54EB-4CD1-A116-06F884A7B3A2"
 JPG_NAME = f"2024-01-15_{UUID.lower()}-main.jpg"
@@ -25,13 +26,13 @@ def _resolved_future(result):
 
 class TestProcessFile:
     def test_malformed_filename_returns_triple_false(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
+        mocker.patch("snap_memories.processing.shutil.copy2")
         result = _process_file(tmp_path / "malformed.jpg", {}, {}, tmp_path)
         assert result == (False, False, False)
 
     def test_jpg_with_gps_no_overlay_is_geotagged(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
-        mock_write_gps = mocker.patch("snap_memories.cli.write_image_gps")
+        mocker.patch("snap_memories.processing.shutil.copy2")
+        mock_write_gps = mocker.patch("snap_memories.processing.write_image_gps")
 
         geotagged, composited, no_meta = _process_file(
             tmp_path / JPG_NAME, META_WITH_GPS, {}, tmp_path
@@ -43,9 +44,9 @@ class TestProcessFile:
         mock_write_gps.assert_called_once()
 
     def test_jpg_with_gps_and_overlay_composite_succeeds(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
-        mock_write_gps = mocker.patch("snap_memories.cli.write_image_gps")
-        mocker.patch("snap_memories.cli.composite_image", return_value=True)
+        mocker.patch("snap_memories.processing.shutil.copy2")
+        mock_write_gps = mocker.patch("snap_memories.processing.write_image_gps")
+        mocker.patch("snap_memories.processing.composite_image", return_value=True)
 
         overlays = {UUID: tmp_path / f"2024-01-15_{UUID.lower()}-overlay.png"}
         geotagged, composited, no_meta = _process_file(
@@ -59,9 +60,9 @@ class TestProcessFile:
         assert mock_write_gps.call_count == 2
 
     def test_jpg_with_gps_and_overlay_composite_fails(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
-        mock_write_gps = mocker.patch("snap_memories.cli.write_image_gps")
-        mocker.patch("snap_memories.cli.composite_image", return_value=False)
+        mocker.patch("snap_memories.processing.shutil.copy2")
+        mock_write_gps = mocker.patch("snap_memories.processing.write_image_gps")
+        mocker.patch("snap_memories.processing.composite_image", return_value=False)
 
         overlays = {UUID: tmp_path / f"2024-01-15_{UUID.lower()}-overlay.png"}
         geotagged, composited, no_meta = _process_file(
@@ -73,7 +74,7 @@ class TestProcessFile:
         assert mock_write_gps.call_count == 1
 
     def test_jpg_uuid_not_in_index_sets_no_meta(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
+        mocker.patch("snap_memories.processing.shutil.copy2")
 
         geotagged, composited, no_meta = _process_file(
             tmp_path / JPG_NAME, {}, {}, tmp_path
@@ -83,7 +84,7 @@ class TestProcessFile:
         assert no_meta is True
 
     def test_jpg_uuid_in_index_without_gps_sets_no_meta(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
+        mocker.patch("snap_memories.processing.shutil.copy2")
 
         geotagged, composited, no_meta = _process_file(
             tmp_path / JPG_NAME, META_WITHOUT_GPS, {}, tmp_path
@@ -93,8 +94,8 @@ class TestProcessFile:
         assert no_meta is True
 
     def test_mp4_with_gps_no_overlay_calls_video_gps(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
-        mock_write_video_gps = mocker.patch("snap_memories.cli.write_video_gps")
+        mocker.patch("snap_memories.processing.shutil.copy2")
+        mock_write_video_gps = mocker.patch("snap_memories.processing.write_video_gps")
 
         meta = {UUID: {"lat": 33.98, "lon": -6.89, "date": "", "media_type": "VIDEO"}}
         geotagged, composited, no_meta = _process_file(
@@ -110,9 +111,9 @@ class TestProcessFile:
         assert call_args[2] == pytest.approx(-6.89)
 
     def test_mp4_with_gps_and_overlay_composite_succeeds(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
-        mock_write_video_gps = mocker.patch("snap_memories.cli.write_video_gps")
-        mocker.patch("snap_memories.cli.composite_video", return_value=True)
+        mocker.patch("snap_memories.processing.shutil.copy2")
+        mock_write_video_gps = mocker.patch("snap_memories.processing.write_video_gps")
+        mocker.patch("snap_memories.processing.composite_video", return_value=True)
 
         meta = {UUID: {"lat": 33.98, "lon": -6.89, "date": "", "media_type": "VIDEO"}}
         overlays = {UUID: tmp_path / f"2024-01-15_{UUID.lower()}-overlay.png"}
@@ -127,9 +128,9 @@ class TestProcessFile:
         assert mock_write_video_gps.call_count == 2
 
     def test_mp4_with_gps_and_overlay_composite_fails(self, mocker, tmp_path):
-        mocker.patch("snap_memories.cli.shutil.copy2")
-        mock_write_video_gps = mocker.patch("snap_memories.cli.write_video_gps")
-        mocker.patch("snap_memories.cli.composite_video", return_value=False)
+        mocker.patch("snap_memories.processing.shutil.copy2")
+        mock_write_video_gps = mocker.patch("snap_memories.processing.write_video_gps")
+        mocker.patch("snap_memories.processing.composite_video", return_value=False)
 
         meta = {UUID: {"lat": 33.98, "lon": -6.89, "date": "", "media_type": "VIDEO"}}
         overlays = {UUID: tmp_path / f"2024-01-15_{UUID.lower()}-overlay.png"}
@@ -196,7 +197,7 @@ class TestMain:
                 "--limit", "5",
             ],
         )
-        mocker.patch("snap_memories.cli.build_metadata_index", return_value={})
+        mocker.patch("snap_memories.processing.build_metadata_index", return_value={})
 
         submitted: list[Future] = []
 
@@ -207,9 +208,9 @@ class TestMain:
 
         mock_pool = self._make_mock_pool(mocker)
         mock_pool.submit.side_effect = _submit
-        mocker.patch("snap_memories.cli.ProcessPoolExecutor", return_value=mock_pool)
+        mocker.patch("snap_memories.processing.ProcessPoolExecutor", return_value=mock_pool)
         mocker.patch(
-            "snap_memories.cli.as_completed",
+            "snap_memories.processing.as_completed",
             side_effect=lambda d: iter(d.keys()),
         )
         mocker.patch("snap_memories.cli.tqdm")
@@ -240,7 +241,7 @@ class TestMain:
                 "--limit", "1",
             ],
         )
-        mocker.patch("snap_memories.cli.build_metadata_index", return_value={})
+        mocker.patch("snap_memories.processing.build_metadata_index", return_value={})
 
         submitted: list[Future] = []
 
@@ -251,9 +252,9 @@ class TestMain:
 
         mock_pool = self._make_mock_pool(mocker)
         mock_pool.submit.side_effect = _submit
-        mocker.patch("snap_memories.cli.ProcessPoolExecutor", return_value=mock_pool)
+        mocker.patch("snap_memories.processing.ProcessPoolExecutor", return_value=mock_pool)
         mocker.patch(
-            "snap_memories.cli.as_completed",
+            "snap_memories.processing.as_completed",
             side_effect=lambda d: iter(d.keys()),
         )
         mocker.patch("snap_memories.cli.tqdm")
